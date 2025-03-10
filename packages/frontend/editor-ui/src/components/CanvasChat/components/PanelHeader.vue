@@ -27,7 +27,13 @@ const emit = defineEmits<{ click: [] }>();
 	justify-content: space-between;
 	align-items: center;
 
+	&:last-child {
+		/** Panel collapsed */
+		cursor: pointer;
+	}
+
 	&:not(:last-child) {
+		/** Panel open */
 		border-bottom: 1px solid var(--color-foreground-base);
 	}
 }

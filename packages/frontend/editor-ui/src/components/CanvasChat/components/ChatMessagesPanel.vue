@@ -152,9 +152,12 @@ function copySessionId() {
 					<template #content>
 						{{ sessionId }}
 					</template>
-					<span :class="$style.sessionId" data-test-id="chat-session-id" @click="copySessionId">{{
-						sessionId
-					}}</span>
+					<span
+						:class="$style.sessionId"
+						data-test-id="chat-session-id"
+						@click.stop="copySessionId"
+						>{{ sessionId }}</span
+					>
 				</n8n-tooltip>
 				<n8n-icon-button
 					:class="$style.headerButton"
@@ -164,7 +167,7 @@ function copySessionId() {
 					size="mini"
 					icon="undo"
 					:title="locale.baseText('chat.window.session.reset.confirm')"
-					@click="onRefreshSession"
+					@click.stop="onRefreshSession"
 				/>
 				<n8n-icon-button
 					v-if="showCloseButton"
@@ -173,7 +176,7 @@ function copySessionId() {
 					type="secondary"
 					size="mini"
 					icon="times"
-					@click="emit('close')"
+					@click.stop="emit('close')"
 				/>
 			</template>
 		</PanelHeader>
