@@ -1,7 +1,7 @@
 import { Service } from '@n8n/di';
 import type { ExecutionLifecycleHooks } from 'n8n-core';
-import { UnexpectedError } from 'n8n-workflow';
 import type { ExecutionStatus, IRun, WorkflowExecuteMode } from 'n8n-workflow';
+import { UnexpectedError } from 'n8n-workflow';
 
 import { InsightsMetadata } from '@/databases/entities/insights-metadata';
 import { InsightsRaw } from '@/databases/entities/insights-raw';

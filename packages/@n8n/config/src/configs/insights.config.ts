@@ -8,4 +8,8 @@ export class InsightsConfig {
 	 */
 	@Env('N8N_INSIGHTS_ENABLED')
 	enabled: boolean = false;
+
+	// TODO: add docs
+	@Env('N8N_INSIGHTS_DISABLED_METRICS')
+	disabledMetrics: string[] = [];
 }
