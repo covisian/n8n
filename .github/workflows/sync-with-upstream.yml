@@ -1,0 +1,73 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # Runs every day at midnight UTC
+  workflow_dispatch:  # Allows manual execution
+
+env:
+  UPSTREAM: n8n-io/n8n
+  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false  # Prevents GitHub Actions from using default credentials
+          fetch-depth: 0  # Ensures full Git history is available to prevent merge issues
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}
+
+      - name: Add Upstream and Fetch
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM }}
+          git fetch upstream --prune  # Fetch latest changes and remove deleted branches
+
+      - name: Debug Git History
+        run: |
+          echo "=== Git Remote Info ==="
+          git remote -v
+          echo "=== Git Branches ==="
+          git branch -a
+          echo "=== Git Log ==="
+          git log --graph --oneline --all -n 20
+
+      - name: Sync All Branches
+        run: |
+          for branch in $(git branch -r | grep -v HEAD | grep "upstream/" | sed 's/upstream\///'); do
+            echo "=== Processing branch: $branch ==="
+
+            # Checkout the branch, create it if missing
+            git checkout $branch 2>/dev/null || git checkout -b $branch upstream/$branch
+
+            # Ensure the branch has an upstream reference
+            git branch --set-upstream-to=upstream/$branch $branch || true
+
+            # Merge upstream changes
+            git merge --no-edit upstream/$branch || git merge --no-edit --allow-unrelated-histories upstream/$branch
+
+            # Check if there are new changes before pushing
+            if [ $(git rev-parse HEAD) != $(git rev-parse @{u}) ]; then
+              git push origin $branch
+            else
+              echo "=== Branch $branch is already up to date, no push needed ==="
+            fi
+
+            echo "=== Processed branch: $branch ==="
+          done
+
+      - name: Sync Tags
+        run: |
+          git fetch upstream --tags  # Fetch latest tags from upstream
+          git push origin --tags  # Push tags to fork
