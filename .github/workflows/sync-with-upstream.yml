@@ -1,6 +1,9 @@
 name: Sync Fork with Upstream
 
 on:
+  push:
+    branches:
+      - "smilecx/workflows"
   schedule:
     - cron: "0 0 * * *"  # Runs every day at midnight UTC
   workflow_dispatch:  # Allows manual execution
