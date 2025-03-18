@@ -1,7 +1,7 @@
 import { GlobalConfig } from '@n8n/config';
 import { Service } from '@n8n/di';
 import ioRedis from 'ioredis';
-import type { Cluster, RedisOptions } from 'ioredis';
+import type { Cluster, ClusterOptions, RedisOptions } from 'ioredis';
 import { Logger } from 'n8n-core';
 
 import { Debounce } from '@/decorators/debounce';
@@ -120,10 +120,16 @@ export class RedisClientService extends TypedEmitter<RedisEventMap> {
 
 		const clusterNodes = this.clusterNodes();
 
-		const clusterClient = new ioRedis.Cluster(clusterNodes, {
+		const clusterOptions: ClusterOptions = {
 			redisOptions: options,
 			clusterRetryStrategy: this.retryStrategy(),
-		});
+		};
+
+		if (this.globalConfig.queue.bull.redis.elastiCacheServerless) {
+			clusterOptions.dnsLookup = (address, callback) => callback(null, address);
+		}
+
+		const clusterClient = new ioRedis.Cluster(clusterNodes, clusterOptions);
 
 		this.logger.debug(`Started Redis cluster client ${type}`, { type, clusterNodes });
 

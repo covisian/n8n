@@ -56,6 +56,10 @@ class RedisConfig {
 	/** Whether to enable dual-stack hostname resolution for Redis connections. */
 	@Env('QUEUE_BULL_REDIS_DUALSTACK')
 	dualStack: boolean = false;
+
+	/** Disable dns resolution on AWS serverless environments */
+	@Env('QUEUE_BULL_REDIS_CLUSTER_ELASTICACHE_SERVERLESS')
+	elastiCacheServerless: boolean = false;
 }
 
 @Config
