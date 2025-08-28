@@ -181,24 +181,11 @@ const properties: INodeProperties[] = [
 				description:
 					'Controls the amount of reasoning tokens to use. A value of "low" will favor speed and economical token usage, "high" will favor more complete reasoning at the cost of more tokens generated and slower responses.',
 				type: 'options',
-				options: [
-					{
-						name: 'Low',
-						value: 'low',
-						description: 'Favors speed and economical token usage',
-					},
-					{
-						name: 'Medium',
-						value: 'medium',
-						description: 'Balance between speed and reasoning accuracy',
-					},
-					{
-						name: 'High',
-						value: 'high',
-						description:
-							'Favors more complete reasoning at the cost of more tokens generated and slower responses',
-					},
-				],
+				typeOptions: {
+					loadOptionsMethod: 'getReasoningEffortOptions',
+					// Depend on both the resource locator and its internal value to trigger reloads
+					loadOptionsDependsOn: ['modelId', 'modelId.value'],
+				},
 				displayOptions: {
 					show: {
 						// reasoning_effort is only available on o1, o1-versioned, or on o3-mini and beyond, and gpt-5 models. Not on o1-mini or other GPT-models.
@@ -278,6 +265,17 @@ export async function execute(this: IExecuteFunctions, i: number): Promise<INode
 	if (externalTools.length) {
 		tools = externalTools.length ? externalTools?.map(formatToOpenAIAssistantTool) : undefined;
 	}
+
+	// Guard: reasoning_effort 'minimal' is only supported on gpt-5 family
+	try {
+		if (
+			options?.reasoning_effort === 'minimal' &&
+			typeof model === 'string' &&
+			!/^(gpt-5).*?/i.test(model)
+		) {
+			delete (options as IDataObject).reasoning_effort;
+		}
+	} catch {}
 
 	const body: IDataObject = {
 		model,

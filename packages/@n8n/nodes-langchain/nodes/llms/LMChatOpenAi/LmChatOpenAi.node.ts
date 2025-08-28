@@ -5,6 +5,8 @@ import {
 	type INodeTypeDescription,
 	type ISupplyDataFunctions,
 	type SupplyData,
+	type ILoadOptionsFunctions,
+	type INodePropertyOptions,
 } from 'n8n-workflow';
 
 import { getProxyAgent } from '@utils/httpProxyAgent';
@@ -19,6 +21,51 @@ export class LmChatOpenAi implements INodeType {
 	methods = {
 		listSearch: {
 			searchModels,
+		},
+		loadOptions: {
+			async getReasoningEffortOptions(
+				this: ILoadOptionsFunctions,
+			): Promise<INodePropertyOptions[]> {
+				// Try to read model from both versions (resourceLocator value or direct string)
+				let modelName = '';
+				try {
+					modelName = (this.getNodeParameter('model.value', '') as string) || '';
+				} catch {}
+				if (!modelName) {
+					try {
+						modelName =
+							(this.getNodeParameter('model', '', { extractValue: true }) as string) || '';
+					} catch {}
+				}
+
+				const base: INodePropertyOptions[] = [
+					{ name: 'Low', value: 'low', description: 'Favors speed and economical token usage' },
+					{
+						name: 'Medium',
+						value: 'medium',
+						description: 'Balance between speed and reasoning accuracy',
+					},
+					{
+						name: 'High',
+						value: 'high',
+						description:
+							'Favors more complete reasoning at the cost of more tokens and slower responses',
+					},
+				];
+
+				if (/^gpt-5.*/.test(modelName)) {
+					return [
+						{
+							name: 'Minimal',
+							value: 'minimal',
+							description: 'Uses the fewest reasoning tokens for maximum speed',
+						},
+						...base,
+					];
+				}
+
+				return base;
+			},
 		},
 	};
 
@@ -270,24 +317,11 @@ export class LmChatOpenAi implements INodeType {
 						description:
 							'Controls the amount of reasoning tokens to use. A value of "low" will favor speed and economical token usage, "high" will favor more complete reasoning at the cost of more tokens generated and slower responses.',
 						type: 'options',
-						options: [
-							{
-								name: 'Low',
-								value: 'low',
-								description: 'Favors speed and economical token usage',
-							},
-							{
-								name: 'Medium',
-								value: 'medium',
-								description: 'Balance between speed and reasoning accuracy',
-							},
-							{
-								name: 'High',
-								value: 'high',
-								description:
-									'Favors more complete reasoning at the cost of more tokens generated and slower responses',
-							},
-						],
+						typeOptions: {
+							loadOptionsMethod: 'getReasoningEffortOptions',
+							// Depend on both the resource locator object and its value to force refresh
+							loadOptionsDependsOn: ['model', 'model.value'],
+						},
 						displayOptions: {
 							show: {
 								// reasoning_effort is only available on o1, o1-versioned, or on o3-mini and beyond, and gpt-5 models. Not on o1-mini or other GPT-models.
@@ -342,7 +376,7 @@ export class LmChatOpenAi implements INodeType {
 			temperature?: number;
 			topP?: number;
 			responseFormat?: 'text' | 'json_object';
-			reasoningEffort?: 'low' | 'medium' | 'high';
+			reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high';
 		};
 
 		const configuration: ClientOptions = {};
@@ -362,11 +396,20 @@ export class LmChatOpenAi implements INodeType {
 		// Extra options to send to OpenAI, that are not directly supported by LangChain
 		const modelKwargs: {
 			response_format?: object;
-			reasoning_effort?: 'low' | 'medium' | 'high';
+			reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
 		} = {};
 		if (options.responseFormat) modelKwargs.response_format = { type: options.responseFormat };
-		if (options.reasoningEffort && ['low', 'medium', 'high'].includes(options.reasoningEffort))
-			modelKwargs.reasoning_effort = options.reasoningEffort;
+		if (
+			options.reasoningEffort &&
+			['minimal', 'low', 'medium', 'high'].includes(options.reasoningEffort)
+		) {
+			const supportsMinimal = /^gpt-5.*/.test(modelName);
+			if (options.reasoningEffort === 'minimal' && !supportsMinimal) {
+				// Minimal is only supported by gpt-5 family; ignore otherwise
+			} else {
+				modelKwargs.reasoning_effort = options.reasoningEffort;
+			}
+		}
 
 		const model = new ChatOpenAI({
 			apiKey: credentials.apiKey as string,

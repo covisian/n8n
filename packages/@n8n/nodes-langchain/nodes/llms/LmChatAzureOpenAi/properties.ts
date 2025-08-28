@@ -92,6 +92,18 @@ export const properties: INodeProperties[] = [
 				],
 			},
 			{
+				displayName: 'Reasoning Effort',
+				name: 'reasoningEffort',
+				default: 'medium',
+				description:
+					'Controls the amount of reasoning tokens to use. A value of "low" will favor speed and economical token usage, "high" will favor more complete reasoning at the cost of more tokens generated and slower responses.',
+				type: 'options',
+				typeOptions: {
+					loadOptionsMethod: 'getReasoningEffortOptions',
+					loadOptionsDependsOn: ['model'],
+				},
+			},
+			{
 				displayName: 'Presence Penalty',
 				name: 'presencePenalty',
 				default: 0,

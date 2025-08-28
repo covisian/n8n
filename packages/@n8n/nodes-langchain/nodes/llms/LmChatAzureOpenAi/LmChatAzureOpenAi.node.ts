@@ -6,6 +6,8 @@ import {
 	type INodeTypeDescription,
 	type ISupplyDataFunctions,
 	type SupplyData,
+	type ILoadOptionsFunctions,
+	type INodePropertyOptions,
 } from 'n8n-workflow';
 
 import { getProxyAgent } from '@utils/httpProxyAgent';
@@ -23,6 +25,46 @@ import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
 import { N8nLlmTracing } from '../N8nLlmTracing';
 
 export class LmChatAzureOpenAi implements INodeType {
+	methods = {
+		loadOptions: {
+			async getReasoningEffortOptions(
+				this: ILoadOptionsFunctions,
+			): Promise<INodePropertyOptions[]> {
+				let modelName = '';
+				try {
+					modelName = (this.getNodeParameter('model', '') as string) || '';
+				} catch {}
+
+				const base: INodePropertyOptions[] = [
+					{ name: 'Low', value: 'low', description: 'Favors speed and economical token usage' },
+					{
+						name: 'Medium',
+						value: 'medium',
+						description: 'Balance between speed and reasoning accuracy',
+					},
+					{
+						name: 'High',
+						value: 'high',
+						description:
+							'Favors more complete reasoning at the cost of more tokens generated and slower responses',
+					},
+				];
+
+				if (/^gpt-5.*/.test(modelName)) {
+					return [
+						{
+							name: 'Minimal',
+							value: 'minimal',
+							description: 'Uses the fewest reasoning tokens for maximum speed',
+						},
+						...base,
+					];
+				}
+
+				return base;
+			},
+		},
+	};
 	description: INodeTypeDescription = {
 		displayName: 'Azure OpenAI Chat Model',
 
@@ -104,6 +146,23 @@ export class LmChatAzureOpenAi implements INodeType {
 			this.logger.info(`Instantiating AzureChatOpenAI model with deployment: ${modelName}`);
 
 			// Create and return the model
+			const modelKwargs: {
+				response_format?: object;
+				reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
+			} = {};
+			if (options.responseFormat) modelKwargs.response_format = { type: options.responseFormat };
+			if (
+				options.reasoningEffort &&
+				['minimal', 'low', 'medium', 'high'].includes(options.reasoningEffort)
+			) {
+				const supportsMinimal = /^gpt-5.*/.test(modelName);
+				if (options.reasoningEffort === 'minimal' && !supportsMinimal) {
+					// skip minimal for non-gpt-5 deployment names
+				} else {
+					modelKwargs.reasoning_effort = options.reasoningEffort;
+				}
+			}
+
 			const model = new AzureChatOpenAI({
 				azureOpenAIApiDeploymentName: modelName,
 				...modelConfig,
@@ -116,11 +175,7 @@ export class LmChatAzureOpenAi implements INodeType {
 						dispatcher: getProxyAgent(),
 					},
 				},
-				modelKwargs: options.responseFormat
-					? {
-							response_format: { type: options.responseFormat },
-						}
-					: undefined,
+				modelKwargs: Object.keys(modelKwargs).length ? modelKwargs : undefined,
 				onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
 			});
 
